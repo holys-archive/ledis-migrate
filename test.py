@@ -7,7 +7,7 @@ import redis
 from redis_import import copy
 
 
-def randomword(words, length):
+def random_word(words, length):
     return ''.join(random.choice(words) for i in range(length))
 
 
@@ -57,7 +57,6 @@ def test():
     random_lpush(rds, words)
     print "random_lpush done"
     random_zadd(rds, words)
-    print "All Done"
 
     lds = redis.Redis(port=6380)
     copy(rds, lds, 0)
@@ -88,4 +87,4 @@ def test():
     
 
 if __name__ == "__main__":
-    test
+    test()
