@@ -44,12 +44,18 @@ def copy_key(redis_client, ledis_client, key):
         entries += 1
 
     elif k_type == "hash":
-        mapping = redis_client.hgetall(key)
-        ledis_client.hmset(key, od(mapping))
+        mapping = od(redis_client.hgetall(key))
+
+        #FIXME: disorder matter?
+        for k, v in mapping.iteritems():
+            ledis_client.hset(key, k, v)
+
+        # print mapping
+        # ledis_client.hmset(key, mapping)
         entries += 1
 
     elif k_type == "zset":
-        out = redis_client.zrange(key, 0, 1, withscores=True)
+        out = redis_client.zrange(key, 0, -1, withscores=True)
         pieces = od()
         for i in od(out).iteritems():
             pieces[i[0]] = int(i[1])
@@ -65,6 +71,19 @@ def copy_keys(redis_client, ledis_client, keys):
         copy_key(redis_client, ledis_client, key)
 
 
+def copy(redis_client, ledis_client, redis_db):
+    global total
+    if scan_available(redis_client):
+        total = redis_client.dbsize()
+        keys = redis_client.scan(cursor=int(redis_db), count=total)
+        copy_keys(redis_client, ledis_client, keys)
+
+    else:
+        keys = redis_client.keys("*")
+        total = len(keys)
+        copy_keys(redis_client, ledis_client, keys)
+
+
 def usage():
     usage = """
         Usage:
@@ -74,7 +93,6 @@ def usage():
 
 
 def main():
-    global total, entries
     if len(sys.argv) != 6:
         usage()
         sys.exit()
@@ -94,16 +112,7 @@ def main():
     except redis.ConnectionError:
         print "Could not connect to LedisDB Server"
         sys.exit()
-
-    if scan_available(redis_c):
-        total = redis_c.dbsize()
-        keys = redis_c.scan(cursor=int(redis_db), count=total)
-        copy_keys(redis_c, ledis_c, keys)
-
-    else:
-        keys = redis_c.keys("*")
-        total = len(keys)
-        copy_keys(redis_c, ledis_c, keys)
+    copy(redis_c, ledis_c, redis_db)
 
     print "%d keys, %d entries copied" % (total, entries)
     print "done.\n\n"
