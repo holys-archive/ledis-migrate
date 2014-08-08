@@ -35,7 +35,6 @@ def random_hset(client, words, length=1000):
 
 
 def random_lpush(client, words, length=1000):
-    value = random.randint(1, length)
     client.lpush("listName", *words)
 
 
@@ -47,7 +46,7 @@ def random_zadd(client, words, length=1000):
 def test():
     words = get_words()
     rds = redis.Redis()
-    print "Flush all data before insert new"
+    print "Flush all redis data before insert new."
     rds.flushall()
 
     random_set(rds, words)
@@ -62,7 +61,7 @@ def test():
     copy(rds, lds, 0)
 
     # for all keys
-    keys = rds.keys("*")
+    keys = rds.scan(0, count=rds.dbsize())
     for key in keys:
         if rds.type(key) == "string" and not lds.exists(key):
             print key
@@ -75,9 +74,8 @@ def test():
    
     #for hash
 
-    keys = rds.hkeys("hashName")
     for key in keys:
-        if not lds.hexists("hashName", key):
+        if rds.type(key) == "hash" and not lds.hexists("hashName", key):
             print "List data not consistent"
 
     # for zset
@@ -88,3 +86,4 @@ def test():
 
 if __name__ == "__main__":
     test()
+    print "Test passed."

@@ -24,7 +24,7 @@ def scan_available(redis_client):
         version_list = server_version.split(".")
         if len(version_list) > 2:
             n = int(version_list[0]) * 10 + int(version_list[1])
-            if n > 28:
+            if n >= 28:
                 return True
     return False
 
@@ -45,13 +45,7 @@ def copy_key(redis_client, ledis_client, key):
 
     elif k_type == "hash":
         mapping = od(redis_client.hgetall(key))
-
-        #FIXME: disorder matter?
-        for k, v in mapping.iteritems():
-            ledis_client.hset(key, k, v)
-
-        # print mapping
-        # ledis_client.hmset(key, mapping)
+        ledis_client.hmset(key, mapping)
         entries += 1
 
     elif k_type == "zset":
@@ -63,7 +57,7 @@ def copy_key(redis_client, ledis_client, key):
         entries += 1
 
     else:
-        print "This kind of data type is not supported by LedisDB."
+        print "%s is not supported by LedisDB." % k_type
 
 
 def copy_keys(redis_client, ledis_client, keys):
@@ -75,13 +69,18 @@ def copy(redis_client, ledis_client, redis_db):
     global total
     if scan_available(redis_client):
         total = redis_client.dbsize()
-        keys = redis_client.scan(cursor=int(redis_db), count=total)
+        # scan return a
+        keys = redis_client.scan(cursor=0, count=total)[1] 
         copy_keys(redis_client, ledis_client, keys)
 
     else:
-        keys = redis_client.keys("*")
-        total = len(keys)
-        copy_keys(redis_client, ledis_client, keys)
+        msg = """We do not support Redis version less than 2.8.0.
+            Please check both your redis server version and redis-py
+            version.
+              """
+        print msg
+        sys.exit()
+    print "%d keys, %d entries copied" % (total, entries)
 
 
 def usage():
@@ -112,10 +111,9 @@ def main():
     except redis.ConnectionError:
         print "Could not connect to LedisDB Server"
         sys.exit()
-    copy(redis_c, ledis_c, redis_db)
 
-    print "%d keys, %d entries copied" % (total, entries)
-    print "done.\n\n"
+    copy(redis_c, ledis_c, redis_db)
+    print "done\n"  
 
 
 if __name__ == "__main__":
